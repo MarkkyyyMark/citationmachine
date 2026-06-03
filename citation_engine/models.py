@@ -38,8 +38,12 @@ class Citation:
     # All authors. Empty list -> rendered as NO_AUTHOR.
     authors: list[str] = field(default_factory=list)
 
-    # Author credentials / bio. Drafted by the qualification finder in a later
-    # phase; reviewed by the student before use.
+    # A short credential that rides inside the bold lead, e.g. "Director of the
+    # Critical Minerals Security Program at CSIS". Drafted + reviewed (Phase 4).
+    short_credential: str | None = None
+
+    # Author credentials / bio: the full parenthetical. Drafted by the
+    # qualification finder in a later phase; reviewed by the student before use.
     qualifications: str | None = None
 
     # Headline of the article / chapter.
