@@ -13,14 +13,19 @@ Driven by two Stoa documents:
 - **Evidence Philosophy and Standards 2024-25**, §I.3 — complete source
   citation, including the "strongly encouraged" author qualifications.
 
-A complete card looks like:
+A complete card looks like (the **bold lead** is the only emphasized part):
 
 ```
-Author Name, Month D, YYYY, (author qualifications) "Article Title" Accessed
-Month D, YYYY https://example.com/article
+**Author, short credential, Month Year.** (full qualifications) "Article Title"
+Publisher, Month D, YYYY. Accessed Month D, YYYY https://example.com/article
     Verbatim quoted text, first word of a sentence to ending punctuation,
     double-indented to differentiate evidence from non-evidence.
 ```
+
+The lead carries month + year; the full published date appears in the body with
+the publisher; the access date is the day the student pulls the citation.
+No-author cards lead with the publisher. The exact-wording contract — confirmed
+against the Nile brief — is in [`docs/citation-format-spec.md`](docs/citation-format-spec.md).
 
 When a field is genuinely unavailable, the Stoa-required placeholders are used:
 `No author provided`, `No publication date available`.
@@ -46,7 +51,8 @@ must be verified by a human.
 ```
 citation_engine/      # Phase 1 — pure logic, no network
   models.py           #   Citation dataclass (fields = Stoa requirements)
-  formatter.py        #   renders the evidence card
+  formatter.py        #   renders the card: plain text + HTML (bold lead)
+docs/                 # citation-format-spec.md — exact-wording contract
 scraper/              # Phase 2 — fetch + metadata extraction
   fetch.py            #   GET html; truststore for proxied/AV networks
   extract.py          #   trafilatura + citation_author tags -> Citation
