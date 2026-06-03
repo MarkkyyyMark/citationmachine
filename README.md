@@ -56,6 +56,11 @@ docs/                 # citation-format-spec.md — exact-wording contract
 scraper/              # Phase 2 — fetch + metadata extraction
   fetch.py            #   GET html; truststore for proxied/AV networks
   extract.py          #   trafilatura + citation_author tags -> Citation
+verify/               # verbatim quote checker (is the quote in the article?)
+credentials/          # Phase 4 — Claude web-search credential drafter
+webapp/               # Phase 5 — FastAPI API + two-column frontend
+  main.py             #   /api/scrape, /api/format, /api/credentials, /
+  static/             #   index.html, style.css, app.js
 tests/                # anchored to the real Nile/Stoa examples
 demo.py               # prints a sample card
 ```
@@ -74,3 +79,14 @@ python -m venv .venv
 .venv/Scripts/python -m pytest -q
 .venv/Scripts/python demo.py
 ```
+
+## Run the web app
+
+```
+.venv/Scripts/python -m uvicorn webapp.main:app --reload
+```
+
+Then open http://127.0.0.1:8000 — paste a URL + quote, review the fields, copy
+the citation. Author-credential drafting needs an Anthropic API key: copy
+`.env.example` to `.env` and set `ANTHROPIC_API_KEY`. Without a key the app
+still works; you enter credentials by hand.
