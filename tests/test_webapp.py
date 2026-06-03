@@ -96,3 +96,15 @@ def test_index_page_served():
     r = client.get("/")
     assert r.status_code == 200
     assert "text/html" in r.headers["content-type"]
+
+
+def test_credentials_without_key_returns_503(monkeypatch):
+    # No API key -> the endpoint must degrade to 503, not crash, so the UI
+    # falls back to manual credential entry.
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    r = client.post(
+        "/api/credentials",
+        json={"authors": ["Jane Doe"], "publication": "CSIS", "url": "https://csis.org/x"},
+    )
+    assert r.status_code == 503
+    assert "error" in r.json()
