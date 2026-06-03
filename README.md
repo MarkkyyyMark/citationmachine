@@ -30,7 +30,7 @@ When a field is genuinely unavailable, the Stoa-required placeholders are used:
 | Phase | What | Cost / keys |
 |---|---|---|
 | 1 | Citation engine (format + tests) | Free, local — **done** |
-| 2 | Scraper + metadata extraction (author, date, title, publication) | Free, local |
+| 2 | Scraper + metadata extraction (author, date, title, publication) | Free, local — **done** |
 | 3 | Verbatim + contiguity verifier; `#:~:text=` deep links | Free, local |
 | 4 | Author-qualification finder (web search + LLM draft) | Anthropic API key |
 | 5 | Web app (FastAPI API + form + editable results + export) | Free, local |
@@ -47,15 +47,24 @@ must be verified by a human.
 citation_engine/      # Phase 1 — pure logic, no network
   models.py           #   Citation dataclass (fields = Stoa requirements)
   formatter.py        #   renders the evidence card
+scraper/              # Phase 2 — fetch + metadata extraction
+  fetch.py            #   GET html; truststore for proxied/AV networks
+  extract.py          #   trafilatura + citation_author tags -> Citation
 tests/                # anchored to the real Nile/Stoa examples
 demo.py               # prints a sample card
 ```
+
+The scraper was verified live against real debate sources (Wilson Center, FP
+Analytics, the JIED journal). Two lessons baked into the code: prefer the
+`citation_author` meta tags publishers emit (exact names, no guessing), and
+flag low-confidence fields loudly rather than trust them — extraction is never
+100%, so a human confirms before the citation is final.
 
 ## Develop
 
 ```
 python -m venv .venv
-.venv/Scripts/python -m pip install -r requirements-dev.txt
+.venv/Scripts/python -m pip install -r requirements.txt -r requirements-dev.txt
 .venv/Scripts/python -m pytest -q
 .venv/Scripts/python demo.py
 ```
