@@ -1,0 +1,61 @@
+# Citation Machine
+
+A web tool for Stoa Team Policy debaters: paste an article **URL** and the
+**passage** you want to quote, and it produces a properly formatted evidence
+card — author, qualifications, title, date, access date, and URL — matching the
+Stoa citation standards and the Nile brief format.
+
+## Citation format (the spec)
+
+Driven by two Stoa documents:
+
+- **Team Policy Debate Rules 2022-23**, §H.2.b — required citation parts.
+- **Evidence Philosophy and Standards 2024-25**, §I.3 — complete source
+  citation, including the "strongly encouraged" author qualifications.
+
+A complete card looks like:
+
+```
+Author Name, Month D, YYYY, (author qualifications) "Article Title" Accessed
+Month D, YYYY https://example.com/article
+    Verbatim quoted text, first word of a sentence to ending punctuation,
+    double-indented to differentiate evidence from non-evidence.
+```
+
+When a field is genuinely unavailable, the Stoa-required placeholders are used:
+`No author provided`, `No publication date available`.
+
+## Build plan
+
+| Phase | What | Cost / keys |
+|---|---|---|
+| 1 | Citation engine (format + tests) | Free, local — **done** |
+| 2 | Scraper + metadata extraction (author, date, title, publication) | Free, local |
+| 3 | Verbatim + contiguity verifier; `#:~:text=` deep links | Free, local |
+| 4 | Author-qualification finder (web search + LLM draft) | Anthropic API key |
+| 5 | Web app (FastAPI API + form + editable results + export) | Free, local |
+| 6 | Public deploy (Render) | Hosting account |
+| 7 | Hardening: rate limits, manual-edit fallbacks, errors | — |
+
+The qualification finder (Phase 4) **drafts** a bio for the student to review;
+it never silently auto-fills, because credentials aren't on the article page and
+must be verified by a human.
+
+## Layout
+
+```
+citation_engine/      # Phase 1 — pure logic, no network
+  models.py           #   Citation dataclass (fields = Stoa requirements)
+  formatter.py        #   renders the evidence card
+tests/                # anchored to the real Nile/Stoa examples
+demo.py               # prints a sample card
+```
+
+## Develop
+
+```
+python -m venv .venv
+.venv/Scripts/python -m pip install -r requirements-dev.txt
+.venv/Scripts/python -m pytest -q
+.venv/Scripts/python demo.py
+```
