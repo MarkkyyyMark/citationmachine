@@ -1,0 +1,98 @@
+"""Tests for the web app: pure converters + the /api endpoints.
+
+Network-touching scrape logic is exercised through the pure
+`build_scrape_response`; the live fetch is integration-tested separately.
+"""
+
+from datetime import date
+
+from fastapi.testclient import TestClient
+
+from webapp.main import app
+from webapp.schemas import CitationFields
+from webapp.converters import citation_from_fields, build_scrape_response
+from scraper.extract import ScrapeResult
+from citation_engine import Citation
+
+client = TestClient(app)
+
+
+def _baskaran_fields() -> dict:
+    return {
+        "url": "https://www.csis.org/analysis/new-executive-order",
+        "quote": "critical minerals have emerged as a prominent element",
+        "authors": ["Gracelin Baskaran"],
+        "short_credential": "Director of the Critical Minerals Security Program at CSIS",
+        "qualifications": "Dr. Gracelin Baskaran is director of the program at CSIS",
+        "title": "New Executive Order Ties U.S. Critical Minerals Security to Global Partnerships",
+        "publication": "CSIS",
+        "pub_date": "2026-01-15",
+        "access_date": "2026-01-20",
+        "page_number": None,
+    }
+
+
+# --- pure converter ---
+
+def test_citation_from_fields_parses_iso_dates():
+    c = citation_from_fields(CitationFields(**_baskaran_fields()))
+    assert isinstance(c, Citation)
+    assert c.pub_date == date(2026, 1, 15)
+    assert c.access_date == date(2026, 1, 20)
+    assert c.authors == ["Gracelin Baskaran"]
+
+
+def test_citation_from_fields_handles_missing_dates():
+    fields = _baskaran_fields() | {"pub_date": None, "access_date": None}
+    c = citation_from_fields(CitationFields(**fields))
+    assert c.pub_date is None
+    assert c.access_date is None
+
+
+# --- scrape response building (pure) ---
+
+def _result(article_text: str) -> ScrapeResult:
+    return ScrapeResult(
+        citation=Citation(authors=["Gracelin Baskaran"], title="T", publication="CSIS"),
+        article_text=article_text,
+        warnings=[],
+    )
+
+
+def test_scrape_response_warns_when_quote_absent():
+    resp = build_scrape_response(_result("Totally different body text."), "a missing quote")
+    assert any("not found" in w.lower() for w in resp["warnings"])
+
+
+def test_scrape_response_no_quote_warning_when_present():
+    body = "Here critical minerals have emerged as a prominent element of policy."
+    resp = build_scrape_response(_result(body), "critical minerals have emerged as a prominent element")
+    assert not any("not found" in w.lower() for w in resp["warnings"])
+
+
+# --- /api/format endpoint ---
+
+def test_format_endpoint_returns_plain_and_html():
+    r = client.post("/api/format", json=_baskaran_fields())
+    assert r.status_code == 200
+    data = r.json()
+    assert data["plain"].startswith(
+        "Gracelin Baskaran, Director of the Critical Minerals Security Program at CSIS, January 2026."
+    )
+    assert "<strong>Gracelin Baskaran" in data["html"]
+
+
+def test_format_endpoint_no_author_uses_publisher():
+    fields = _baskaran_fields() | {"authors": [], "short_credential": None,
+                                   "qualifications": None}
+    r = client.post("/api/format", json=fields)
+    assert r.status_code == 200
+    assert r.json()["plain"].startswith("CSIS, No author provided, January 2026.")
+
+
+# --- index page served ---
+
+def test_index_page_served():
+    r = client.get("/")
+    assert r.status_code == 200
+    assert "text/html" in r.headers["content-type"]

@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Citation Machine — Stoa Debate Evidence</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <header class="topbar">
+    <h1>Citation Machine</h1>
+    <p>Paste an article link and the passage you want. We build a Stoa evidence card — you confirm every field.</p>
+  </header>
+
+  <main>
+    <form id="scrape-form" class="intake">
+      <label>Article URL
+        <input type="url" id="in-url" placeholder="https://…" required>
+      </label>
+      <label>Quote (the passage you'll read)
+        <textarea id="in-quote" rows="3" placeholder="Paste the exact words…"></textarea>
+      </label>
+      <button type="submit" id="build-btn">Build citation</button>
+      <p id="intake-status" class="status" role="status"></p>
+    </form>
+
+    <section id="workspace" class="workspace" hidden>
+      <div class="col col-fields">
+        <h2>Fields — edit anything</h2>
+        <div id="warnings" class="warnings" hidden></div>
+
+        <label>Author(s) <span class="hint">one per line</span>
+          <textarea id="f-authors" rows="2"></textarea>
+        </label>
+        <label>Short credential <span class="hint">rides in the bold lead</span>
+          <input type="text" id="f-credential">
+        </label>
+        <label>Full qualifications <span class="hint">parenthetical</span>
+          <textarea id="f-qualifications" rows="3"></textarea>
+        </label>
+        <label>Title
+          <input type="text" id="f-title">
+        </label>
+        <label>Publisher
+          <input type="text" id="f-publication">
+        </label>
+        <div class="row">
+          <label>Published date
+            <input type="date" id="f-pub-date">
+          </label>
+          <label>Accessed date
+            <input type="date" id="f-access-date">
+          </label>
+        </div>
+        <label>URL
+          <input type="text" id="f-url">
+        </label>
+      </div>
+
+      <div class="col col-preview">
+        <h2>Your citation</h2>
+        <div id="preview" class="preview" aria-live="polite"></div>
+        <div class="actions">
+          <button type="button" id="copy-html">Copy for Google Docs</button>
+          <button type="button" id="copy-plain" class="secondary">Copy plain</button>
+          <span id="copy-status" class="status"></span>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
