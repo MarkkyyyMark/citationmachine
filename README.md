@@ -90,3 +90,15 @@ Then open http://127.0.0.1:8000 — paste a URL + quote, review the fields, copy
 the citation. Author-credential drafting needs an Anthropic API key: copy
 `.env.example` to `.env` and set `ANTHROPIC_API_KEY`. Without a key the app
 still works; you enter credentials by hand.
+
+## Deploy (Render)
+
+[`render.yaml`](render.yaml) defines the service. On Render: **New → Blueprint**,
+point it at this GitHub repo, and it reads the build/start commands and the
+pinned Python version automatically. The one thing the blueprint can't carry is
+the secret — add `ANTHROPIC_API_KEY` in the service's **Environment** settings.
+Without it the site still runs; credential drafting falls back to manual entry.
+
+The free tier sleeps after ~15 min idle, so the first request after a quiet
+spell takes ~30–60s to wake. Before sharing the URL widely, add the Phase 7
+rate limit — the credential endpoint makes billable Claude + web-search calls.

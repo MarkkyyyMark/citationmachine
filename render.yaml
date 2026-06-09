@@ -1,0 +1,16 @@
+# Render Blueprint — deploys the Citation Machine FastAPI app.
+# Docs: https://render.com/docs/blueprint-spec
+services:
+  - type: web
+    name: citation-machine
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn webapp.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      # Pinned because the dev machine runs 3.14, which Render may not offer yet.
+      - key: PYTHON_VERSION
+        value: "3.12.8"
+      # Set the real value in the Render dashboard — never commit the key.
+      - key: ANTHROPIC_API_KEY
+        sync: false
