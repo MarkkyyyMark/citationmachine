@@ -25,6 +25,17 @@ from dotenv import load_dotenv
 
 load_dotenv()  # pull ANTHROPIC_API_KEY from a local .env if present
 
+# Defer TLS verification to the OS certificate store so the Anthropic client
+# trusts certs injected by school / corporate / antivirus TLS-intercepting
+# proxies. Without this, httpx rejects them with "unable to get local issuer
+# certificate" and every API call fails. Mirrors scraper/fetch.py; idempotent.
+try:
+    import truststore
+
+    truststore.inject_into_ssl()
+except ImportError:  # pragma: no cover - truststore is a hard runtime dep
+    pass
+
 MODEL = "claude-opus-4-8"
 
 _SYSTEM = (
