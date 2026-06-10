@@ -84,22 +84,46 @@ function fillFields(f) {
 }
 
 // --- credential drafting (best-effort; falls back to manual) ---
+function setCredStatus(text, isError) {
+  const cs = $("cred-status");
+  cs.className = "status cred-status" + (isError ? " error" : "");
+  cs.textContent = text;
+}
+
 async function draftCredentials(f) {
+  setCredStatus("Drafting author credentials via web search… this can take up to a minute.");
   try {
     const r = await fetch("/api/credentials", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ authors: f.authors || [], publication: f.publication, url: f.url }),
     });
-    if (!r.ok) return; // 503 etc. -> leave manual
+    if (r.status === 429) {
+      setCredStatus("Credential drafting is rate-limited right now — enter credentials manually.", true);
+      return;
+    }
+    if (!r.ok) { // 503 (no key) etc. -> leave manual
+      setCredStatus("Credential drafting unavailable — enter credentials manually.", true);
+      return;
+    }
     const data = await r.json();
-    if (data.short_credential && !fields.short_credential.value)
-      fields.short_credential.value = data.short_credential;
-    if (data.qualifications && !fields.qualifications.value)
-      fields.qualifications.value = data.qualifications;
-    appendWarning("Credentials were AI-drafted — verify them against the source.");
-    refreshPreview();
-  } catch (e) { /* manual entry stands */ }
+    let filled = false;
+    if (data.short_credential && !fields.short_credential.value) {
+      fields.short_credential.value = data.short_credential; filled = true;
+    }
+    if (data.qualifications && !fields.qualifications.value) {
+      fields.qualifications.value = data.qualifications; filled = true;
+    }
+    if (filled) {
+      setCredStatus("Draft filled in — verify it against the source before using.");
+      appendWarning("Credentials were AI-drafted — verify them against the source.");
+      refreshPreview();
+    } else {
+      setCredStatus("Couldn't verify this author's credentials — enter them manually.", true);
+    }
+  } catch (e) {
+    setCredStatus("Credential drafting failed — enter credentials manually.", true);
+  }
 }
 
 function appendWarning(text) {

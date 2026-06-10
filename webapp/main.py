@@ -11,23 +11,39 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
+from slowapi.errors import RateLimitExceeded
 
 from citation_engine import format_citation, format_citation_html
 from scraper.fetch import fetch_html, FetchError
 from scraper.extract import extract_from_html
 from .schemas import CitationFields, ScrapeRequest, CredentialsRequest
 from .converters import citation_from_fields, build_scrape_response
+from .ratelimit import limiter, credentials_limit, scrape_limit
 
 app = FastAPI(title="Citation Machine")
+
+# Register the limiter and a JSON 429 handler consistent with the other
+# endpoints' {"error": ...} shape, so the frontend handles it uniformly.
+app.state.limiter = limiter
+
+
+@app.exception_handler(RateLimitExceeded)
+def _rate_limited(request: Request, exc: RateLimitExceeded) -> JSONResponse:
+    return JSONResponse(
+        status_code=429,
+        content={"error": "Too many requests — wait a bit and try again."},
+    )
+
 
 _STATIC = Path(__file__).parent / "static"
 
 
 @app.post("/api/scrape")
-def api_scrape(req: ScrapeRequest):
+@limiter.limit(scrape_limit)
+def api_scrape(request: Request, req: ScrapeRequest):
     """Fetch + extract a page into editable fields, with warnings."""
     try:
         fetched = fetch_html(req.url)
@@ -45,11 +61,12 @@ def api_format(fields: CitationFields):
 
 
 @app.post("/api/credentials")
-def api_credentials(req: CredentialsRequest):
+@limiter.limit(credentials_limit)
+def api_credentials(request: Request, req: CredentialsRequest):
     """Draft author credentials via Claude web search (Phase 4).
 
-    Wired in step 3; until then this reports that drafting is unavailable so the
-    UI falls back to manual entry without breaking.
+    Rate-limited (it makes billable Claude + web-search calls) and degrades to a
+    503 when drafting is unavailable, so the UI falls back to manual entry.
     """
     try:
         from credentials.drafter import draft_credentials, CredentialError

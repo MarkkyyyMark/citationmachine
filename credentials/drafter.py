@@ -97,7 +97,10 @@ def draft_credentials(authors: list[str], publication: str | None, url: str) -> 
 
     import anthropic
 
-    client = anthropic.Anthropic()
+    # Bound the call so a hung web search can't pin the single free-tier worker.
+    # Retries stay low for the same reason; the UI falls back to manual entry.
+    timeout = float(os.environ.get("CREDENTIALS_TIMEOUT", "90"))
+    client = anthropic.Anthropic(timeout=timeout, max_retries=1)
     try:
         response = client.messages.create(
             model=MODEL,

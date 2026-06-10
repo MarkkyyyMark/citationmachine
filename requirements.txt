@@ -3,5 +3,6 @@ trafilatura>=1.8
 truststore>=0.9
 fastapi>=0.110
 uvicorn>=0.29
+slowapi>=0.1.9
 anthropic>=0.40
 python-dotenv>=1.0

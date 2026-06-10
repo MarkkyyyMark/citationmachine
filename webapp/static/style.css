@@ -71,6 +71,7 @@ button:disabled { opacity: .55; cursor: default; }
 
 .status { margin: 10px 0 0; font-size: 13px; color: var(--muted); min-height: 1em; }
 .status.error { color: #b42318; }
+.cred-status { margin-top: 4px; font-style: italic; }
 
 .workspace { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; align-items: start; }
 .col {

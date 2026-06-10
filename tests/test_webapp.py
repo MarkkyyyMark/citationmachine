@@ -6,15 +6,25 @@ Network-touching scrape logic is exercised through the pure
 
 from datetime import date
 
+import pytest
 from fastapi.testclient import TestClient
 
 from webapp.main import app
 from webapp.schemas import CitationFields
 from webapp.converters import citation_from_fields, build_scrape_response
+from webapp.ratelimit import limiter
 from scraper.extract import ScrapeResult
 from citation_engine import Citation
 
 client = TestClient(app)
+
+
+@pytest.fixture(autouse=True)
+def _reset_limiter():
+    # Rate-limit counters live in-process; clear them so counts don't bleed
+    # across tests (e.g. a credentials test exhausting the next test's budget).
+    limiter.reset()
+    yield
 
 
 def _baskaran_fields() -> dict:
@@ -108,3 +118,32 @@ def test_credentials_without_key_returns_503(monkeypatch):
     )
     assert r.status_code == 503
     assert "error" in r.json()
+
+
+# --- Phase 7 hardening: rate limits + input caps ---
+
+def test_credentials_rate_limited(monkeypatch):
+    # The billable endpoint must shed load: past the cap, callers get 429 with a
+    # JSON error (the UI falls back to manual). Set a tiny cap to make it cheap.
+    monkeypatch.setenv("RATE_CREDENTIALS", "2/minute")
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)  # 503 before any real call
+    payload = {"authors": ["X"], "publication": "Y", "url": "https://z.com/a"}
+    statuses = [client.post("/api/credentials", json=payload).status_code for _ in range(3)]
+    assert statuses[:2] == [503, 503]   # within cap -> normal degraded path
+    assert statuses[2] == 429           # over cap -> rate limited
+    assert "error" in client.post("/api/credentials", json=payload).json()
+
+
+def test_scrape_rejects_oversized_url():
+    # An over-long URL is rejected at validation (422) before any network fetch.
+    r = client.post("/api/scrape", json={"url": "https://x.com/" + "a" * 5000, "quote": ""})
+    assert r.status_code == 422
+
+
+def test_credentials_rejects_too_many_authors(monkeypatch):
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    r = client.post(
+        "/api/credentials",
+        json={"authors": ["a"] * 50, "publication": "CSIS", "url": "https://csis.org/x"},
+    )
+    assert r.status_code == 422

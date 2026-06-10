@@ -40,7 +40,7 @@ When a field is genuinely unavailable, the Stoa-required placeholders are used:
 | 4 | Author-qualification finder (web search + LLM draft) | Anthropic API key |
 | 5 | Web app (FastAPI API + form + editable results + export) | Free, local |
 | 6 | Public deploy (Render) | Hosting account |
-| 7 | Hardening: rate limits, manual-edit fallbacks, errors | — |
+| 7 | Hardening: per-IP rate limits, input caps, call timeout, credential UX | Free, local — **done** |
 
 The qualification finder (Phase 4) **drafts** a bio for the student to review;
 it never silently auto-fills, because credentials aren't on the article page and
@@ -100,5 +100,7 @@ the secret — add `ANTHROPIC_API_KEY` in the service's **Environment** settings
 Without it the site still runs; credential drafting falls back to manual entry.
 
 The free tier sleeps after ~15 min idle, so the first request after a quiet
-spell takes ~30–60s to wake. Before sharing the URL widely, add the Phase 7
-rate limit — the credential endpoint makes billable Claude + web-search calls.
+spell takes ~30–60s to wake. The credential endpoint is rate-limited per IP
+(Phase 7) since it makes billable Claude + web-search calls; tune the caps with
+`RATE_CREDENTIALS` / `RATE_SCRAPE` env vars (see `.env.example`) without a
+redeploy.
