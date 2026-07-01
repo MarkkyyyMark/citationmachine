@@ -9,6 +9,7 @@ Endpoints:
 
 from __future__ import annotations
 
+import hashlib
 from pathlib import Path
 
 from fastapi import FastAPI, Request
@@ -84,9 +85,30 @@ def api_credentials(request: Request, req: CredentialsRequest):
         )
 
 
+def _asset_version() -> str:
+    """A short hash of the JS/CSS so browsers refetch them whenever they change.
+
+    Without this, `/static/app.js` is cached indefinitely and testers keep
+    running stale JavaScript after every deploy (a fixed feature looks broken).
+    Injecting `?v=<hash>` changes the URL only when the bytes change, so updates
+    land automatically with no hard-refresh.
+    """
+    h = hashlib.sha256()
+    for name in ("app.js", "style.css"):
+        p = _STATIC / name
+        if p.exists():
+            h.update(p.read_bytes())
+    return h.hexdigest()[:8]
+
+
 @app.get("/", response_class=HTMLResponse)
-def index() -> str:
-    return (_STATIC / "index.html").read_text(encoding="utf-8")
+def index() -> HTMLResponse:
+    html = (_STATIC / "index.html").read_text(encoding="utf-8")
+    v = _asset_version()
+    html = html.replace("/static/app.js", f"/static/app.js?v={v}")
+    html = html.replace("/static/style.css", f"/static/style.css?v={v}")
+    # Never cache the HTML itself, so the versioned asset links are always current.
+    return HTMLResponse(html, headers={"Cache-Control": "no-cache"})
 
 
 app.mount("/static", StaticFiles(directory=_STATIC), name="static")
