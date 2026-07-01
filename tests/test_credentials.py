@@ -6,7 +6,12 @@ prompt-building and JSON-parsing logic is.
 
 import pytest
 
-from credentials.drafter import build_user_prompt, parse_credentials, CredentialError
+from credentials.drafter import (
+    build_user_prompt,
+    parse_credentials,
+    CredentialError,
+    is_transient,
+)
 
 
 def test_build_user_prompt_includes_author_and_publication():
@@ -62,6 +67,30 @@ def test_parse_credentials_verified_defaults_false_when_absent():
     # safer to over-flag "check this" than to imply verification that didn't happen.
     out = parse_credentials('{"short_credential": "Analyst at CSIS", "qualifications": "X is an analyst."}')
     assert out["verified"] is False
+
+
+class _FakeExc(Exception):
+    """Stand-in for an anthropic error without constructing the real SDK class."""
+    def __init__(self, name, status_code=None):
+        super().__init__(name)
+        self.__class__.__name__ = name
+        if status_code is not None:
+            self.status_code = status_code
+
+
+def test_is_transient_flags_timeouts_and_5xx():
+    # These are the intermittent failures that should be retried / surfaced as
+    # "try again", not "enter manually".
+    assert is_transient(_FakeExc("APITimeoutError")) is True
+    assert is_transient(_FakeExc("APIConnectionError")) is True
+    assert is_transient(_FakeExc("InternalServerError", status_code=500)) is True
+    assert is_transient(_FakeExc("OverloadedError", status_code=529)) is True
+
+
+def test_is_transient_false_for_client_errors():
+    # A 400/401 won't fix itself on retry — that's a real config problem.
+    assert is_transient(_FakeExc("BadRequestError", status_code=400)) is False
+    assert is_transient(_FakeExc("AuthenticationError", status_code=401)) is False
 
 
 def test_build_user_prompt_designates_lead_author():

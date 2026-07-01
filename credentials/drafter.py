@@ -106,7 +106,31 @@ def parse_credentials(text: str) -> dict:
 
 
 class CredentialError(Exception):
-    """Raised when credentials cannot be drafted (no key, API error, bad output)."""
+    """Raised when credentials cannot be drafted (no key, API error, bad output).
+
+    ``retryable`` is True when the failure is transient (timeout, connection
+    blip, 5xx/overload) and a fresh attempt is likely to succeed — the web layer
+    uses it to tell the student "try again" rather than "enter manually".
+    """
+
+    def __init__(self, message: str, *, retryable: bool = False):
+        super().__init__(message)
+        self.retryable = retryable
+
+
+def is_transient(exc: Exception) -> bool:
+    """Would retrying this error plausibly succeed?
+
+    Timeouts and connection errors are always transient; HTTP errors are
+    transient only for 5xx / 529 overload (a 4xx is a real request problem that
+    won't fix itself). Classified by name + status_code so we don't depend on
+    constructing the SDK's exception classes.
+    """
+    name = type(exc).__name__
+    if name in {"APITimeoutError", "APIConnectionError"}:
+        return True
+    status = getattr(exc, "status_code", None)
+    return isinstance(status, int) and status >= 500
 
 
 def draft_credentials(authors: list[str], publication: str | None, url: str) -> dict:
@@ -121,9 +145,12 @@ def draft_credentials(authors: list[str], publication: str | None, url: str) -> 
     import anthropic
 
     # Bound the call so a hung web search can't pin the single free-tier worker.
-    # Retries stay low for the same reason; the UI falls back to manual entry.
+    # Retries: the SDK auto-retries timeouts / 5xx / 429 with exponential
+    # backoff, so allow a few — a single transient blip was surfacing to the
+    # student as a hard "unavailable" even though a retry would have worked.
     timeout = float(os.environ.get("CREDENTIALS_TIMEOUT", "90"))
-    client = anthropic.Anthropic(timeout=timeout, max_retries=1)
+    retries = int(os.environ.get("CREDENTIALS_RETRIES", "3"))
+    client = anthropic.Anthropic(timeout=timeout, max_retries=retries)
     try:
         response = client.messages.create(
             model=MODEL,
@@ -136,7 +163,11 @@ def draft_credentials(authors: list[str], publication: str | None, url: str) -> 
             messages=[{"role": "user", "content": build_user_prompt(authors, publication, url)}],
         )
     except anthropic.APIError as exc:
-        raise CredentialError(f"Claude request failed: {exc}") from exc
+        # Flag transient failures so the UI can say "try again" instead of
+        # sending the student to manual entry for a momentary blip.
+        raise CredentialError(
+            f"Claude request failed: {exc}", retryable=is_transient(exc)
+        ) from exc
 
     text = "".join(b.text for b in response.content if getattr(b, "type", None) == "text")
     return parse_credentials(text)

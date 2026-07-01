@@ -78,7 +78,10 @@ def api_credentials(request: Request, req: CredentialsRequest):
     try:
         return draft_credentials(authors=req.authors, publication=req.publication, url=req.url)
     except CredentialError as exc:
-        return JSONResponse(status_code=503, content={"error": str(exc)})
+        return JSONResponse(
+            status_code=503,
+            content={"error": str(exc), "retryable": getattr(exc, "retryable", False)},
+        )
 
 
 @app.get("/", response_class=HTMLResponse)

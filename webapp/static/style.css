@@ -31,6 +31,9 @@ main { max-width: 1080px; margin: 0 auto; padding: 24px; }
 
 label { display: block; margin: 0 0 14px; font-weight: 600; font-size: 14px; }
 .hint { font-weight: 400; color: var(--muted); font-size: 12px; }
+/* Checkbox toggle: checkbox inline with its text, not stacked like text inputs. */
+.inline-check { display: flex; align-items: center; gap: 8px; font-weight: 400; margin-top: -6px; }
+.inline-check input { width: auto; margin: 0; }
 
 input, textarea {
   width: 100%;

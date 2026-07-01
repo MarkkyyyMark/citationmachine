@@ -13,6 +13,10 @@ const fields = {
   url: $("f-url"),
 };
 
+// Toggle: when unchecked, the short credential is omitted from the citation but
+// the typed value stays in the box so it can be switched back on.
+const showCredential = $("f-credential-show");
+
 let currentQuote = "";
 let lastPlain = "";
 let lastHtml = "";
@@ -23,7 +27,7 @@ function collectFields() {
     url: fields.url.value.trim(),
     quote: currentQuote,
     authors: fields.authors.value.split("\n").map((s) => s.trim()).filter(Boolean),
-    short_credential: fields.short_credential.value.trim() || null,
+    short_credential: (showCredential.checked ? fields.short_credential.value.trim() : "") || null,
     qualifications: fields.qualifications.value.trim() || null,
     title: fields.title.value.trim() || null,
     publication: fields.publication.value.trim() || null,
@@ -102,8 +106,14 @@ async function draftCredentials(f) {
       setCredStatus("Credential drafting is rate-limited right now — enter credentials manually.", true);
       return;
     }
-    if (!r.ok) { // 503 (no key) etc. -> leave manual
-      setCredStatus("Credential drafting unavailable — enter credentials manually.", true);
+    if (!r.ok) { // 503 — distinguish a transient blip (retry) from no-key (manual)
+      let retryable = false;
+      try { retryable = (await r.json()).retryable; } catch (_) {}
+      if (retryable) {
+        setCredStatus("Credential drafting hit a temporary error — click Draft again to retry.", true);
+      } else {
+        setCredStatus("Credential drafting unavailable — enter credentials manually.", true);
+      }
       return;
     }
     const data = await r.json();
@@ -179,6 +189,8 @@ $("scrape-form").addEventListener("submit", async (e) => {
 
 // re-render preview whenever a field changes
 Object.values(fields).forEach((el) => el.addEventListener("input", scheduleFormat));
+// ...and immediately when the show-credential toggle flips
+showCredential.addEventListener("change", refreshPreview);
 
 // --- copy buttons ---
 $("copy-html").addEventListener("click", async () => {
