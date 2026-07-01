@@ -12,12 +12,15 @@ from pydantic import BaseModel, Field
 
 # Caps keep oversized payloads out of the billable LLM call and out of the
 # formatter. URLs and quotes are bounded generously; an author name far past
-# 200 chars or a list past 10 is abuse, not a real citation.
+# 200 chars is abuse, not a real citation. The author-list cap is generous:
+# think-tank and academic pieces routinely list 10-30 authors (a cap of 10
+# rejected a real 11-author CSIS report at validation), but a list in the
+# hundreds is abuse.
 _URL_MAX = 2000
 _QUOTE_MAX = 10_000
 _TEXT_MAX = 2000
 _AUTHOR_MAX = 200
-_AUTHORS_MAX = 10
+_AUTHORS_MAX = 40
 
 AuthorStr = Annotated[str, Field(max_length=_AUTHOR_MAX)]
 

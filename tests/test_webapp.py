@@ -180,3 +180,18 @@ def test_credentials_rejects_too_many_authors(monkeypatch):
         json={"authors": ["a"] * 50, "publication": "CSIS", "url": "https://csis.org/x"},
     )
     assert r.status_code == 422
+
+
+def test_credentials_accepts_real_multi_author_count(monkeypatch):
+    # Regression: the CSIS "Russia-Ukraine War in 10 Charts" page has 11 authors.
+    # A cap of 10 rejected it at validation (422) before the drafter ran, so the
+    # UI reported "unavailable". A real 11-author piece must NOT be a 422 — with
+    # no API key it should reach the drafter and degrade to 503 instead.
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    r = client.post(
+        "/api/credentials",
+        json={"authors": [f"Author {i}" for i in range(11)],
+              "publication": "CSIS", "url": "https://csis.org/x"},
+    )
+    assert r.status_code != 422
+    assert r.status_code == 503  # no key -> drafter's degraded path, not a validation reject
