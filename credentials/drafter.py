@@ -40,30 +40,50 @@ MODEL = "claude-opus-4-8"
 
 _SYSTEM = (
     "You research and draft author credentials for high-school debate evidence "
-    "citations. You are given an author (or none), the publication, and the "
-    "article URL. Use web search to find the author's REAL, current credentials "
-    "relevant to the article's subject — their title, role, and affiliation.\n\n"
+    "citations. You are given the LEAD author to focus on (plus any co-authors "
+    "for context), the publication, and the article URL. A citation names one "
+    "author — the lead — so draft credentials for THAT person. Use web search "
+    "to find their REAL, current credentials relevant to the article's subject "
+    "— their title, role, and affiliation.\n\n"
     "Return ONLY a JSON object with exactly these keys:\n"
     '  "short_credential": a brief phrase for a citation\'s bold lead, e.g. '
     '"Director of the Critical Minerals Security Program at CSIS". No name, no '
     "trailing period.\n"
     '  "qualifications": one complete sentence describing the credentials, e.g. '
     '"Dr. Gracelin Baskaran is director of the Critical Minerals Security '
-    'Program at the Center for Strategic and International Studies (CSIS)."\n\n'
-    "Rules: Never invent or guess. If you cannot verify a credential from a "
-    "reputable source, return empty strings for both keys. These are drafts a "
-    "student will verify — accuracy matters far more than completeness."
+    'Program at the Center for Strategic and International Studies (CSIS)."\n'
+    '  "verified": true if you confirmed these credentials from a reputable '
+    "source via web search; false if this is your best-effort guess from the "
+    "author's name, the publication, and general knowledge.\n\n"
+    "Always give the student SOMETHING to check — never return empty strings if "
+    "you can produce even a plausible best-effort credential (e.g. inferring an "
+    'affiliation from the publication). Set "verified": false whenever you are '
+    "not certain. NEVER present a guess as verified — an unchecked wrong "
+    "credential in a citation is worse than one the student knows to double-"
+    "check. Only fall back to empty strings if you genuinely have nothing at all "
+    "to offer, not even an inference."
 )
 
 
 def build_user_prompt(authors: list[str], publication: str | None, url: str) -> str:
-    """The per-request instruction (kept out of the cached system prompt)."""
-    who = ", ".join(authors) if authors else f"(no named author; publisher: {publication})"
+    """The per-request instruction (kept out of the cached system prompt).
+
+    Names the lead (first) author as the target — that's who a citation cites —
+    and lists any co-authors only as context.
+    """
+    if authors:
+        lead = authors[0]
+        lead_line = f"Lead author (draft credentials for this person, the one we cite): {lead}"
+        others = authors[1:]
+        coauthor_line = f"\nCo-authors (context only): {', '.join(others)}" if others else ""
+    else:
+        lead_line = f"Lead author: (no named author; publisher: {publication})"
+        coauthor_line = ""
     return (
-        f"Author: {who}\n"
+        f"{lead_line}{coauthor_line}\n"
         f"Publication: {publication or 'unknown'}\n"
         f"Article URL: {url}\n\n"
-        "Find this author's credentials and return the JSON object."
+        "Find the lead author's credentials and return the JSON object."
     )
 
 
@@ -79,6 +99,9 @@ def parse_credentials(text: str) -> dict:
     return {
         "short_credential": (data.get("short_credential") or "").strip(),
         "qualifications": (data.get("qualifications") or "").strip(),
+        # Default to unverified: a reply that omits the flag is treated as a best
+        # guess, so the UI always tells the student to double-check.
+        "verified": bool(data.get("verified", False)),
     }
 
 

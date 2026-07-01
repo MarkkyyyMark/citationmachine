@@ -47,3 +47,30 @@ def test_parse_credentials_missing_keys_default_to_empty():
 def test_parse_credentials_no_json_raises():
     with pytest.raises(CredentialError):
         parse_credentials("I could not find any credentials for this author.")
+
+
+# --- best-effort drafting: always return something, flagged verified/unverified ---
+
+def test_parse_credentials_reports_verified_flag():
+    text = '{"short_credential": "Director at CSIS", "qualifications": "Dr. X is director at CSIS.", "verified": true}'
+    out = parse_credentials(text)
+    assert out["verified"] is True
+
+
+def test_parse_credentials_verified_defaults_false_when_absent():
+    # A model reply without the flag is treated as an unverified best guess —
+    # safer to over-flag "check this" than to imply verification that didn't happen.
+    out = parse_credentials('{"short_credential": "Analyst at CSIS", "qualifications": "X is an analyst."}')
+    assert out["verified"] is False
+
+
+def test_build_user_prompt_designates_lead_author():
+    # We cite one author per evidence card — the lead (first) author. The prompt
+    # must name that person as the target even when the page lists many.
+    p = build_user_prompt(
+        ["Seth G. Jones", "Riley McCabe", "Yasir Atalan"], "CSIS", "https://csis.org/x"
+    )
+    assert "Seth G. Jones" in p
+    # The lead author must be identified as the one to draft, not buried in a list.
+    lead_line = next(line for line in p.splitlines() if "Seth G. Jones" in line)
+    assert "lead" in lead_line.lower() or "cite" in lead_line.lower()

@@ -114,12 +114,17 @@ async function draftCredentials(f) {
     if (data.qualifications && !fields.qualifications.value) {
       fields.qualifications.value = data.qualifications; filled = true;
     }
-    if (filled) {
-      setCredStatus("Draft filled in — verify it against the source before using.");
+    if (filled && data.verified) {
+      setCredStatus("Draft filled in (verified via web search) — still confirm against the source before using.");
       appendWarning("Credentials were AI-drafted — verify them against the source.");
       refreshPreview();
+    } else if (filled) {
+      // Best-effort guess, not confirmed — fill it but make the "check this" loud.
+      setCredStatus("⚠ Best-effort DRAFT — NOT verified. Double-check every word against the source before using.", true);
+      appendWarning("Credentials are an UNVERIFIED AI guess — confirm them against the source, or a wrong credential could end up in your citation.");
+      refreshPreview();
     } else {
-      setCredStatus("Couldn't verify this author's credentials — enter them manually.", true);
+      setCredStatus("Couldn't draft this author's credentials — enter them manually.", true);
     }
   } catch (e) {
     setCredStatus("Credential drafting failed — enter credentials manually.", true);
