@@ -134,6 +134,39 @@ def test_credentials_rate_limited(monkeypatch):
     assert "error" in client.post("/api/credentials", json=payload).json()
 
 
+def test_client_ip_keys_on_proxy_appended_hop():
+    # Render's proxy APPENDS the real client IP as the last X-Forwarded-For hop;
+    # any earlier hops arrived from the client and can be forged. Keying on the
+    # first hop would hand every attacker a fresh rate-limit bucket per request.
+    from starlette.requests import Request
+    from webapp.ratelimit import client_ip
+
+    scope = {
+        "type": "http",
+        "headers": [(b"x-forwarded-for", b"6.6.6.6, 203.0.113.7")],
+        "client": ("127.0.0.1", 1234),
+    }
+    assert client_ip(Request(scope)) == "203.0.113.7"
+
+
+def test_credentials_rate_limit_survives_spoofed_forwarded_for(monkeypatch):
+    # An attacker rotating a fake X-Forwarded-For prefix must NOT escape the cap
+    # on the billable endpoint — all three requests share the real client's bucket.
+    monkeypatch.setenv("RATE_CREDENTIALS", "2/minute")
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)  # 503 before any real call
+    payload = {"authors": ["X"], "publication": "Y", "url": "https://z.com/a"}
+    statuses = [
+        client.post(
+            "/api/credentials",
+            json=payload,
+            headers={"X-Forwarded-For": f"10.0.0.{i}, 203.0.113.7"},
+        ).status_code
+        for i in range(3)
+    ]
+    assert statuses[:2] == [503, 503]   # within cap -> normal degraded path
+    assert statuses[2] == 429           # spoofed prefixes don't buy a fresh bucket
+
+
 def test_scrape_rejects_oversized_url():
     # An over-long URL is rejected at validation (422) before any network fetch.
     r = client.post("/api/scrape", json={"url": "https://x.com/" + "a" * 5000, "quote": ""})

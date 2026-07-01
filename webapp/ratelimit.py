@@ -19,15 +19,23 @@ from starlette.requests import Request
 
 
 def client_ip(request: Request) -> str:
-    """The real visitor's IP.
+    """The real visitor's IP, for rate-limit keying.
 
     Render (and most hosts) sit behind a proxy, so ``request.client.host`` is the
-    proxy's address — every visitor would share one bucket. The real client is
-    the first hop in ``X-Forwarded-For``; fall back to the socket peer locally.
+    proxy's address — every visitor would share one bucket. The proxy APPENDS the
+    real client IP as the LAST hop of ``X-Forwarded-For``. Any earlier hops were
+    sent by the client and are forgeable, so we must NOT trust the first hop: a
+    caller who sends ``X-Forwarded-For: <random>`` would otherwise get a fresh
+    bucket on every request and defeat the cap on the billable endpoint.
+
+    Take the last hop (the one our trusted proxy added); fall back to the socket
+    peer locally, where there's no proxy and no XFF header.
     """
     forwarded = request.headers.get("x-forwarded-for")
     if forwarded:
-        return forwarded.split(",")[0].strip()
+        hops = [h.strip() for h in forwarded.split(",") if h.strip()]
+        if hops:
+            return hops[-1]
     return get_remote_address(request)
 
 

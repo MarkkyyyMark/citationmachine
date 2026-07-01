@@ -1,8 +1,11 @@
-requests>=2.31
-trafilatura>=1.8
-truststore>=0.9
-fastapi>=0.110
-uvicorn>=0.29
-slowapi>=0.1.9
-anthropic>=0.40
-python-dotenv>=1.0
+# Pinned to exact versions so dev, CI, and Render all resolve identically.
+# A floor pin (>=) lets a breaking upstream release ship straight to prod on
+# the next deploy with no code change. Bump these deliberately after testing.
+requests==2.34.2
+trafilatura==2.0.0
+truststore==0.10.4
+fastapi==0.136.3
+uvicorn==0.48.0
+slowapi==0.1.9
+anthropic==0.105.2
+python-dotenv==1.2.2
