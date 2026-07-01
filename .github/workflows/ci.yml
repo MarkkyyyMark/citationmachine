@@ -17,6 +17,10 @@ jobs:
         with:
           python-version-file: .python-version
       - name: Install dependencies
-        run: pip install -r requirements.txt
+        # pytest is a test-only dep, deliberately kept out of the runtime
+        # requirements.txt, so install it explicitly here.
+        run: |
+          pip install -r requirements.txt
+          pip install pytest
       - name: Run tests
         run: python -m pytest -q
